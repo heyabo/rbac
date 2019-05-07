@@ -1,3 +1,7 @@
 
 server:
   port: 8888
+spring:
+  datasource:
+    url: jdbc:sqlite:D:\Code\2019\rbac\src\main\resources\rbac.db
+    driver-class-name: org.sqlite.JDBC
