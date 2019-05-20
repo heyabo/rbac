@@ -1,8 +1,12 @@
 package com.hyb.rbac.repo;
 
 public class Result {
+    /**
+     * 0 失败，1 成功
+     */
     private boolean status;
     private Object data;
+    private String errorInfo;
     private Exception exception;
 
     public boolean isStatus() {
@@ -19,6 +23,14 @@ public class Result {
 
     public void setData(Object data) {
         this.data = data;
+    }
+
+    public String getErrorInfo() {
+        return errorInfo;
+    }
+
+    public void setErrorInfo(String errorInfo) {
+        this.errorInfo = errorInfo;
     }
 
     public Exception getException() {

@@ -1,7 +1,9 @@
 package com.hyb.rbac.filter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hyb.rbac.common.util.JwtUtil;
 import com.hyb.rbac.repo.AppAccessLog;
+import com.hyb.rbac.repo.Result;
 import com.hyb.rbac.service.AppAccessLogServiceImpl;
 import net.minidev.json.JSONObject;
 import org.slf4j.Logger;
@@ -12,9 +14,8 @@ import org.springframework.core.annotation.Order;
 import javax.servlet.*;
 import javax.servlet.annotation.WebFilter;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.*;
 
 @WebFilter(filterName = "tokenFilter",
@@ -34,7 +35,6 @@ public class TokenFilter implements Filter {
     @Override
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
         HttpServletRequest request = (HttpServletRequest) servletRequest;
-        HttpServletResponse response = (HttpServletResponse) servletResponse;
 
         AppAccessLog accessLog = new AppAccessLog();
         accessLog.setIp(request.getRemoteAddr());
@@ -60,16 +60,25 @@ public class TokenFilter implements Filter {
         if (ALLOWED_PATHS.contains(accessLog.getTargetUrl())) {
             filterChain.doFilter(servletRequest, servletResponse);
         } else {
+            Result result=new Result();
             String token = request.getHeader("Authorization");
+            if(token==null){
+
+                result.setErrorInfo("未获取到token");
+                returnJson(servletResponse,result);
+                return;
+            }
             try {
                 Map<String, Object> map = JwtUtil.valid(token);
-                Integer result = (Integer) map.get("Result");
-                switch (result) {
+                Integer status = (Integer) map.get("Result");
+                switch (status) {
                     case 0:
-                        request.getRequestDispatcher("/error/tokenError.html").forward(request, response);
+                        result.setErrorInfo("无效的token");
+                        returnJson(servletResponse,result);
                         break;
                     case 2:
-                        request.getRequestDispatcher("/error/tokenError.html").forward(request, response);
+                        result.setErrorInfo("过期的token");
+                        returnJson(servletResponse,result);
                         break;
                     default:
                         JSONObject data = (JSONObject) map.get("data");
@@ -77,10 +86,28 @@ public class TokenFilter implements Filter {
                         filterChain.doFilter(servletRequest, servletResponse);
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                result.setErrorInfo("token验证过程出错");
+                result.setException(e);
+                returnJson(servletResponse,result);
             }
         }
         accessLogService.addAppAccessLog(accessLog);
+    }
+
+    /**
+     * 将错误信息返回前端
+     * @param response
+     * @param result
+     */
+    private void returnJson(ServletResponse response, Result result){
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/json; charset=utf-8");
+        try (PrintWriter writer = response.getWriter()){
+            ObjectMapper mapper = new ObjectMapper();
+            writer.print(mapper.writeValueAsString(result));
+        } catch (IOException e) {
+            log.error("response error",e);
+        }
     }
 
 }
